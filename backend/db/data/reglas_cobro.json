@@ -1,0 +1,9 @@
+{
+  "CARR-01": [
+    { "effective_from": "2026-12-01", "method": "volumetric", "divisor": 5000 }
+  ],
+  "CARR-02": [],
+  "CARR-03": [
+    { "effective_from": "2026-12-01", "method": "volumetric", "divisor": 5000 }
+  ]
+}
