@@ -66,6 +66,19 @@
         />
         <p id="weight-error" class="error">{{ errors.weight_kg }}</p>
       </div>
+      <fieldset class="space-y-3">
+        <legend class="label">Medidas del paquete en cm</legend>
+        <p class="text-xs text-slate-500">Completa las tres para comparar opciones que usan peso volumétrico. Si las omites, esas opciones no podrán mostrarse cuando aplique esa regla.</p>
+        <div class="grid grid-cols-3 gap-3">
+          <div v-for="dimension in dimensions" :key="dimension.field">
+            <label :for="dimension.field" class="label">{{ dimension.label }}</label>
+            <input :id="dimension.field" v-model="form[dimension.field]" class="field" type="number"
+              min="0.001" max="999999.999" step="0.001" :aria-invalid="!!errors[dimension.field]"
+              :aria-describedby="dimension.field + '-error'" />
+            <p :id="dimension.field + '-error'" class="error">{{ errors[dimension.field] }}</p>
+          </div>
+        </div>
+      </fieldset>
       <div>
         <label for="email" class="label">Correo electrónico</label>
         <input
@@ -112,6 +125,12 @@
     >
       {{ result.message }}
     </p>
+    <p v-if="result.options.length && result.valid_until" class="mt-2 text-sm text-slate-500">
+      Precio respetado hasta {{ new Date(result.valid_until).toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) }} (Monterrey).
+    </p>
+    <ul v-if="result.warnings?.length" class="mt-3 list-inside list-disc text-sm text-amber-900">
+      <li v-for="warning in result.warnings" :key="warning">{{ warning }}</li>
+    </ul>
     <div
       v-if="result.options.length"
       class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -128,6 +147,10 @@
           {{ money(option.price_mxn) }}
         </p>
         <p class="mt-2 text-sm text-slate-600">{{ delivery(option) }}</p>
+        <p v-if="option.billable_weight_kg" class="mt-2 text-xs text-slate-500">
+          Peso para esta tarifa: {{ option.billable_weight_kg }} kg
+          <span v-if="option.billing_method === 'volumetric'"> · considera peso volumétrico</span>
+        </p>
       </article>
     </div>
     <p v-if="result.options.length" class="mt-4 text-xs text-slate-500">
@@ -147,7 +170,15 @@ const form = reactive({
   destination_postal_code: "",
   weight_kg: "",
   email: "",
+  length_cm: "",
+  width_cm: "",
+  height_cm: "",
 });
+const dimensions = [
+  { field: 'length_cm', label: 'Largo' },
+  { field: 'width_cm', label: 'Ancho' },
+  { field: 'height_cm', label: 'Alto' },
+] as const;
 const errors = ref<Record<string, string>>({});
 const busy = ref(false);
 const message = ref("");
@@ -165,7 +196,7 @@ async function submit() {
     "destination_postal_code",
   ] as const) {
     if (!/^[0-9]{5}$/.test(form[field]))
-      errors.value[field] = "Escribe cinco dígitos.";
+      errors.value[field] = "Escribe un código postal de cinco dígitos, no el nombre de la ciudad.";
   }
   if (
     !/^[0-9]+(?:\.[0-9]{1,3})?$/.test(form.weight_kg) ||
@@ -174,6 +205,13 @@ async function submit() {
     errors.value.weight_kg = "Usa un peso positivo con hasta tres decimales.";
   if (!/^[^\s@]+@[^\s@]+$/.test(form.email))
     errors.value.email = "Escribe un correo válido.";
+  if (dimensions.some(({ field }) => String(form[field]).trim() !== "")) {
+    for (const { field } of dimensions) {
+      const text = String(form[field]);
+      if (!/^[0-9]+(?:\.[0-9]{1,3})?$/.test(text) || Number(text) <= 0 || Number(text) >= 1000000)
+        errors.value[field] = "Completa las tres medidas positivas, con hasta tres decimales.";
+    }
+  }
   if (Object.keys(errors.value).length) return;
   busy.value = true;
   try {
@@ -181,7 +219,10 @@ async function submit() {
       quote?: QuoteResult;
       errors?: Record<string, string>;
       message?: string;
-    }>("/quotes", { ...form }, {
+    }>("/quotes", {
+      ...form,
+      ...Object.fromEntries(dimensions.map(({ field }) => [field, String(form[field]).trim() === "" ? null : form[field]])),
+    }, {
       // Rails also returns useful messages and saved quotes with 422 or 503.
       validateStatus: () => true,
     });

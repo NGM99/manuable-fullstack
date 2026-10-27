@@ -13,6 +13,18 @@
       <button class="secondary" @click="logout">Salir</button>
     </div>
     <p v-if="busy" role="status" class="mb-4">Cargando información…</p>
+    <section class="panel mb-8 overflow-x-auto">
+      <h2 class="mb-3 text-xl font-semibold">Cotizaciones por día</h2>
+      <p class="mb-4 text-xs text-slate-500">Fechas en horario de Monterrey. Web y capturas manuales separadas. Sin opciones cuenta solicitudes terminadas, incluidos errores.</p>
+      <p v-if="!stats.length && !busy" class="text-sm text-slate-600">Sin actividad registrada.</p>
+      <table v-else class="w-full text-left text-sm">
+        <thead><tr><th>Fecha</th><th>Origen</th><th>Total</th><th>Sin opciones</th></tr></thead>
+        <tbody><tr v-for="row in stats" :key="row.date + row.source" class="border-t border-slate-100">
+          <td class="py-2">{{ row.date }}</td><td>{{ row.source === 'manual' ? 'Manual' : 'Web' }}</td>
+          <td>{{ row.total }}</td><td>{{ row.without_options }}</td>
+        </tr></tbody>
+      </table>
+    </section>
     <section class="space-y-5">
       <h2 class="text-xl font-semibold">Contactos y cotizaciones</h2>
       <p v-if="!leads.length && !busy" class="panel text-slate-600">Todavía no hay contactos en esta página.</p>
@@ -22,12 +34,19 @@
           <thead class="border-b text-slate-500"><tr><th class="pb-3">Fecha / ID</th><th>Ruta</th><th>Peso</th><th>Resultado</th><th>Opciones mostradas</th></tr></thead>
           <tbody>
             <tr v-for="quote in lead.quotes" :key="quote.id" class="border-b border-slate-100 align-top last:border-0">
-              <td class="py-4 pr-3">{{ date(quote.quoted_at) }}<br /><span class="text-slate-400">#{{ quote.id }}</span></td>
+              <td class="py-4 pr-3">{{ date(quote.quoted_at) }}<br /><span class="text-slate-400">#{{ quote.id }} · {{ quote.source === 'manual' ? 'Manual' : 'Web' }} {{ quote.external_reference }}</span>
+                <p v-if="quote.valid_until && quote.options.length" class="mt-2 text-xs">
+                  {{ quote.price_status === 'not_started' ? 'Fecha futura; vigencia hasta ' : quote.price_honored ? 'Precio vigente hasta ' : 'Precio vencido desde ' }}{{ date(quote.valid_until) }}
+                </p>
+              </td>
               <td class="py-4 pr-3">{{ quote.origin_postal_code }} → {{ quote.destination_postal_code }}</td>
-              <td class="py-4 pr-3">{{ quote.weight_kg }} kg</td>
+              <td class="py-4 pr-3">{{ quote.weight_kg }} kg
+                <p v-if="quote.length_cm" class="mt-1 text-xs">{{ quote.length_cm }} × {{ quote.width_cm }} × {{ quote.height_cm }} cm</p>
+              </td>
               <td class="py-4 pr-3">{{ statusNames[quote.status] || quote.status }}</td>
               <td class="py-4"><div v-for="(option, index) in quote.options" :key="index" class="mb-2">
                 {{ option.carrier_name }} · {{ money(option.price_mxn) }} · {{ delivery(option) }}
+                <p v-if="option.billable_weight_kg" class="text-xs text-slate-500">Peso aplicado: {{ option.billable_weight_kg }} kg</p>
               </div><span v-if="!quote.options.length" class="text-slate-500">{{ quote.message }}</span></td>
             </tr>
           </tbody>
@@ -75,7 +94,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { delivery, getJson, money, type ImportReport, type QuoteResult } from '../api'
+import { delivery, getJson, money, type DailyStat, type ImportReport, type QuoteResult } from '../api'
 
 const username = ref('')
 const password = ref('')
@@ -86,10 +105,12 @@ const page = ref(1)
 const leads = ref<Array<{ email: string; quotes: QuoteResult[] }>>([])
 const imports = ref<ImportReport[]>([])
 const selected = ref<ImportReport | null>(null)
+const stats = ref<DailyStat[]>([])
 const statusNames: Record<string, string> = {
   pending: 'En proceso', quoted: 'Cotizada', no_rates: 'Sin tarifas',
   weight_out_of_range: 'Sin rango de peso', postal_code_not_found: 'CP no localizado',
   external_service_unavailable: 'Servicio postal no disponible', failed: 'Error',
+  dimensions_required: 'Faltan dimensiones',
 }
 const date = (value: string) => new Date(value).toLocaleString('es-MX', { timeZone: 'America/Monterrey' })
 
@@ -97,12 +118,14 @@ async function load() {
   busy.value = true
   error.value = ''
   try {
-    const [contacts, reports] = await Promise.all([
+    const [contacts, reports, daily] = await Promise.all([
       getJson<{ leads: typeof leads.value }>('leads?page=' + page.value, authorization.value),
       getJson<{ imports: ImportReport[] }>('imports', authorization.value),
+      getJson<{ days: DailyStat[] }>('stats', authorization.value),
     ])
     leads.value = contacts.leads
     imports.value = reports.imports
+    stats.value = daily.days
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'No pudimos cargar los datos.'
     authorization.value = ''
@@ -131,6 +154,7 @@ function logout() {
   leads.value = []
   imports.value = []
   selected.value = null
+  stats.value = []
 }
 
 async function changePage(change: number) {

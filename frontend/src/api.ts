@@ -7,6 +7,9 @@ export interface QuoteOption {
   currency: string
   delivery_days_min: number | null
   delivery_days_max: number | null
+  billable_weight_kg?: string | null
+  volumetric_weight_kg?: string | null
+  billing_method?: string
 }
 
 export interface QuoteResult {
@@ -20,6 +23,22 @@ export interface QuoteResult {
   message: string
   options: QuoteOption[]
   quoted_at: string
+  valid_until?: string
+  price_honored?: boolean
+  price_status?: 'valid' | 'expired' | 'not_started' | 'unavailable'
+  source?: 'web' | 'manual'
+  external_reference?: string | null
+  warnings?: string[]
+  length_cm?: string | null
+  width_cm?: string | null
+  height_cm?: string | null
+}
+
+export interface DailyStat {
+  date: string
+  source: 'web' | 'manual'
+  total: number
+  without_options: number
 }
 
 export interface ImportRow {
