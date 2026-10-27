@@ -1,6 +1,6 @@
 # Manuable — cotizador
 
-Rails API, Vue 3 con TypeScript y PostgreSQL. Ruby sustituye a Python según la autorización comunicada por el candidato.
+Rails API, Vue 3 con TypeScript y PostgreSQL.
 
 ## Requisitos
 
