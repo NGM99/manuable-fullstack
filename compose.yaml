@@ -26,6 +26,8 @@ services:
       DB_USER: ${DB_USER:-manuable}
       DB_PASSWORD: ${DB_PASSWORD:-manuable_local_only}
       RAILS_LOG_TO_STDOUT: 'true'
+      ADMIN_USER: ${ADMIN_USER:-comercial}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-manuable_local_only}
     ports:
       - '127.0.0.1:${BACKEND_PORT:-3000}:3000'
     depends_on:
@@ -82,6 +84,8 @@ services:
       RAILS_ENV: test
       CI: 'true'
       TEST_DB_HOST: db-test
+      ADMIN_USER: test-admin
+      ADMIN_PASSWORD: test-password
     networks: [test]
     depends_on:
       db-test:
