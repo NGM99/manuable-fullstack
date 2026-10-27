@@ -2,11 +2,15 @@ module Api
   module V1
     class QuotesController < ApplicationController
       def create
-        quote = Quote.new(params.permit(:email, :origin_postal_code, :destination_postal_code, :weight_kg))
+        quote = Quote.new(params.permit(:email, :origin_postal_code, :destination_postal_code, :weight_kg,
+          :length_cm, :width_cm, :height_cm))
         unless quote.save
           labels = {
             email: "Escribe un correo válido.", origin_postal_code: "Escribe cinco dígitos.",
-            destination_postal_code: "Escribe cinco dígitos.", weight_kg: "Usa un peso positivo con hasta tres decimales."
+            destination_postal_code: "Escribe cinco dígitos.", weight_kg: "Usa un peso positivo con hasta tres decimales.",
+            length_cm: "Indica largo, ancho y alto positivos en cm, con hasta tres decimales.",
+            width_cm: "Indica largo, ancho y alto positivos en cm, con hasta tres decimales.",
+            height_cm: "Indica largo, ancho y alto positivos en cm, con hasta tres decimales."
           }
           return render json: { errors: quote.errors.attribute_names.to_h { |field| [field, labels.fetch(field, "Valor inválido.")] } },
             status: :unprocessable_entity
