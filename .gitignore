@@ -15,3 +15,8 @@ backend/.bundle/
 backend/vendor/bundle/
 .DS_Store
 Thumbs.db
+
+# Archivos locales de datos y enunciados
+/datos/
+/fase_1/
+/fase_2/
