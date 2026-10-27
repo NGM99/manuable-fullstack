@@ -25,6 +25,14 @@ RSpec.describe PostalCodeLookup do
     expect(lookup).to eq(latitude: 19.5, longitude: -99.1)
   end
 
+  it "returns the same point when the provider changes the order of its places" do
+    expected = lookup
+    reversed = JSON.parse(body)
+    reversed["places"].reverse!
+    allow(response).to receive(:body).and_return(reversed.to_json)
+    expect(described_class.new.call("06600")).to eq(expected)
+  end
+
   context "when the postal code does not exist" do
     let(:response) { Net::HTTPNotFound.new("1.1", "404", "Not Found") }
 

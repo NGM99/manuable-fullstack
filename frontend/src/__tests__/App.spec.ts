@@ -65,3 +65,53 @@ it('handles a rejected connection and enables the form again', async () => {
   expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
   wrapper.unmount()
 })
+
+it('trims postal spaces and sends all dimensions as entered', async () => {
+  const post = vi.spyOn(http, 'post').mockResolvedValue({ data: { quote: {
+    id: 3, status: 'quoted', options: [], message: 'Solicitud registrada',
+  } } })
+  const wrapper = mount(QuoteForm)
+  await fill(wrapper)
+  await wrapper.get('#origin').setValue('06600 ')
+  await wrapper.get('#length_cm').setValue('40')
+  await wrapper.get('#width_cm').setValue('30')
+  await wrapper.get('#height_cm').setValue('20')
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(post).toHaveBeenCalledWith('/quotes', expect.objectContaining({
+    origin_postal_code: '06600', length_cm: 40, width_cm: 30, height_cm: 20,
+  }), expect.any(Object))
+  wrapper.unmount()
+})
+
+it('rejects a city name and incomplete dimensions without sending a request', async () => {
+  const post = vi.spyOn(http, 'post')
+  const wrapper = mount(QuoteForm)
+  await fill(wrapper)
+  await wrapper.get('#origin').setValue('Monterrey')
+  await wrapper.get('#length_cm').setValue('40')
+  await wrapper.get('form').trigger('submit')
+  expect(post).not.toHaveBeenCalled()
+  expect(wrapper.get('#origin-error').text()).toContain('no el nombre de la ciudad')
+  expect(wrapper.get('#width_cm-error').text()).not.toBe('')
+  wrapper.unmount()
+})
+
+it('shows missing-dimension warnings alongside the remaining real-weight options', async () => {
+  vi.spyOn(http, 'post').mockResolvedValue({ data: { quote: {
+    id: 4, status: 'quoted', message: 'Opciones disponibles',
+    valid_until: '2026-12-31T00:00:00-06:00',
+    warnings: ['Agrega largo, ancho y alto para cotizar con DHL.'],
+    options: [{ carrier_name: 'Estafeta', price_mxn: '198.55', billable_weight_kg: '2.5',
+      delivery_days_min: 3, delivery_days_max: 3 }],
+  } } })
+  const wrapper = mount(QuoteForm)
+  await fill(wrapper)
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+  expect(wrapper.text()).toContain('Agrega largo, ancho y alto para cotizar con DHL.')
+  expect(wrapper.text()).toContain('Peso para esta tarifa: 2.5 kg')
+  expect(wrapper.text()).toContain('Precio respetado hasta')
+  expect(wrapper.findAll('article')).toHaveLength(1)
+  wrapper.unmount()
+})
