@@ -5,6 +5,7 @@ Rails.application.routes.draw do
       get "health", to: "health#show"
       resources :quotes, only: :create
       namespace :admin do
+        get "stats", to: "stats#index"
         resources :leads, only: :index
         resources :quotes, only: :show
         resources :imports, only: [:index, :show]
