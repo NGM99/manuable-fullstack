@@ -77,7 +77,7 @@ Resultado del archivo recibido: 108 filas revisadas, 25 normalizadas y publicada
 - Docker prepara la base e importa los archivos al arrancar. No se requieren Ruby, Node ni PostgreSQL instalados en el equipo del evaluador.
 - Las pruebas críticas usan respuestas postales simuladas para no depender de Zippopotam.
 - Cobertura por CP, precios observados, datos faltantes, impuestos y tipo de días requieren confirmación comercial. Los pendientes quedan identificados en este documento y en ENTREGA_FASE_1.md.
-- Este cierre corresponde a la fase 1; las reglas de mantenimiento de la fase 2 todavía no se implementaron.
+- Al cierre de v1, el alcance correspondía a la fase 1. La implementación de mantenimiento se documenta en la sección 6.
 
 ## 5. Endpoints de funcionalidad
 
@@ -88,3 +88,40 @@ Resultado del archivo recibido: 108 filas revisadas, 25 normalizadas y publicada
 | GET | `/api/v1/admin/quotes/:id` | Consultar una cotización guardada con su correo, opciones históricas y datos usados en el cálculo. | Basic Auth |
 | GET | `/api/v1/admin/imports` | Consultar los resúmenes de las últimas 20 importaciones. | Basic Auth |
 | GET | `/api/v1/admin/imports/:id` | Consultar una importación con sus filas originales, valores normalizados y motivos de aceptación o rechazo. | Basic Auth |
+
+## 6. Fase 2 — requisitos, escenarios y decisiones
+
+Se continúa sobre v1, con las cuatro tablas existentes. La única migración adicional agrega reglas de cobro a paqueterías y dimensiones, origen, referencia externa y vencimiento a cotizaciones. No modifica las opciones ni los precios guardados.
+
+| Requisito / escenario | Decisión implementada |
+|---|---|
+| Nuevas tarifas DHL desde el primer día del mes siguiente al 20/11/2026. | Fecha efectiva: 01/12/2026, tomada del CSV. Se cargan 24 tarifas nuevas y se cierra la vigencia de las anteriores en esa fecha, sin borrarlas. Las demás paqueterías conservan sus tarifas. |
+| El próximo cambio no debe requerir modificar código. | Cada revisión CSV reemplaza el tarifario completo de una paquetería desde una fecha. Se carga con rates:revise[path], en orden cronológico. No se mezclan paqueterías o fechas en un lote. La revisión completa se cancela si alguna fila es inválida; se conserva el tarifario anterior y un reporte del fallo. Repetir un archivo completado no lo duplica. |
+| DHL y FedEx usarán volumétrico desde diciembre; Estafeta después, sin fecha. | Reglas con fecha, método y divisor en reglas_cobro.json, cargadas a PostgreSQL. Antes de una regla volumétrica se cobra peso real. Es posible programar Estafeta o cambiar el divisor editando configuración y cargándola, sin cambiar el cálculo. |
+| El peso real y el volumétrico caen en rangos distintos. | Calcular por paquetería el mayor entre peso real y largo × ancho × alto / divisor. Redondear el volumétrico hacia arriba al siguiente gramo; conservar el rango (mínimo, máximo]. Mostrar y guardar peso aplicado, método, divisor y precio. |
+| No se proporcionan dimensiones. | Permitir las opciones por peso real. Omitir las que exigen volumétrico e indicar qué medidas faltan; nunca aplicarles peso real como sustituto. Si no quedan opciones y faltan medidas, devolver un resultado específico. |
+| Solo se captura una medida, una negativa o demasiados decimales. | Validar las tres medidas como conjunto, positivas, menores de 1,000,000 cm y con hasta tres decimales, tanto en formulario como en Rails. No consultar el servicio postal si la entrada es inválida. |
+| Respetar lo cotizado durante 30 días. | Leer siempre los importes de las opciones guardadas. Para web: vencimiento exclusivo a los 30 días de quoted_at; la migración lo completa en registros existentes sin tocar precios. Expirar no elimina ni recalcula el historial. El panel distingue vigente, vencida y fecha futura. |
+| Registrar 40 cotizaciones dadas por teléfono. | Importar identificador, fecha, correo, ruta, zona, peso y precio originales; fuente manual y referencia externa única. No exigir que el precio exista en las tarifas actuales ni reconstruirlo mediante Zippopotam. Dimensiones, distancia, tarifa de origen, peso facturado y plazo desconocidos permanecen sin informar. |
+| El histórico solo informa fecha, sin hora. | Interpretarla en Monterrey y respetar el precio hasta finalizar el día fecha + 30 días. Es un supuesto explícito por falta de hora. Conservar las fechas recibidas aunque algunas sean futuras respecto del reloj real; no cambiar el reloj de la aplicación. |
+| Reimportar un histórico con precios diferentes para el mismo identificador. | Rechazar esos registros y conservar el precio previamente guardado. El reporte mantiene originales, normalizados, motivos y procedencia. |
+| Growth solicita números diarios, si cabe en el tiempo. | Incluido: total y solicitudes terminadas sin opciones por fecha de Monterrey, separados entre web y manual. Los pendientes cuentan en total, pero no como solicitudes terminadas sin opciones. Los errores y resultados sin tarifa sí cuentan. |
+
+Las revisiones usan las mismas validaciones de peso, precio, zona y plazo de la fase 1. El CSV nuevo tiene encabezados explícitos en kg y MXN; no necesita inferir unidades. Los dos CSV adicionales se copian sin alterar sus bytes a backend/db/data para permitir el arranque desde un clon.
+
+La configuración de cobro del archivo es la fuente del arranque: modificarla y reconstruir el backend para conservar el cambio en reinicios. La tarea rates:rules[path] permite cargarla manualmente; editar únicamente la base no sustituye actualizar el archivo.
+
+### Investigación de Customer Care
+
+- **CP con espacios exteriores:** fase 1 ya aplicaba trim en Vue y Rails. La prueba de regresión con “06600 ” confirma que se consulta “06600” y se cotiza; no se reprodujo el bloqueo descrito.
+- **Ciudad en lugar del CP:** el servicio espera cinco dígitos, no geocodifica ciudades. El formulario ahora lo explica expresamente y rechaza la entrada antes de enviarla. La API también la rechaza antes de consultar Zippopotam.
+- **Distintas paqueterías con el mismo CP:** compartir un CP no implica compartir destino, peso, fecha y dimensiones. Las opciones dependen de todos esos datos y de tarifas vigentes. Las pruebas confirman resultados iguales con entradas y coordenadas iguales; no hay evidencia suficiente para atribuir el reporte a un fallo del cálculo.
+- **Orden de lugares del proveedor:** el promedio ordenado de coordenadas no cambia al reordenar los mismos lugares; se añadió una prueba. Si el proveedor cambia sus coordenadas, la distancia puede variar entre solicitudes; se conservan las coordenadas usadas en cada cotización.
+
+### API y entrega de fase 2
+
+- POST /api/v1/quotes admite length_cm, width_cm y height_cm opcionales como conjunto. Devuelve también vencimiento, peso aplicado y avisos por dimensiones faltantes. La fecha de cálculo la decide el servidor, no el cliente.
+- GET /api/v1/admin/stats requiere Basic Auth y devuelve fecha, origen, total y cantidad sin opciones. Limita la respuesta a las últimas 60 combinaciones fecha/origen con actividad.
+- Los endpoints existentes mantienen su función y los históricos se consultan desde el mismo panel.
+- Las pruebas cubren regresión de v1, cambio de fecha, siguiente revisión por CSV, cancelación atómica, volumétrico, dimensiones, 30 días, 40 históricos, CP y estadísticas. Las respuestas postales se simulan.
+- El enunciado sitúa el caso en noviembre y la entrega en octubre. Se respetan las fechas comerciales explícitas de diciembre; las pruebas simulan esas fechas sin alterar el reloj de producción.
