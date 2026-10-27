@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+if [ "${RAILS_ENV:-}" != "test" ]; then
+  echo 'The test suite requires RAILS_ENV=test.' >&2
+  exit 1
+fi
+cd /app
+bundle exec rails db:prepare
+bundle exec rails zeitwerk:check
+bundle exec rspec
+cd /frontend
+npm run test:unit -- --run
+npm run build

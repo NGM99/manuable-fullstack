@@ -1,0 +1,13 @@
+* text=auto
+*.rb text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ts text eol=lf
+*.vue text eol=lf
+*.css text eol=lf
+Dockerfile text eol=lf
+backend/bin/* text eol=lf
+bin/* text eol=lf
+# Preserve the supplied CSV bytes, including their existing line endings.
+datos/*.csv -text

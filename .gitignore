@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/dist/
+**/coverage/
+**/*.tsbuildinfo
+backend/log/*
+!backend/log/.keep
+backend/tmp/*
+!backend/tmp/.keep
+backend/config/master.key
+backend/config/credentials/*.key
+backend/.bundle/
+backend/vendor/bundle/
+.DS_Store
+Thumbs.db

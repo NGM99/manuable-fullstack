@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+backend/log
+backend/tmp
+backend/config/master.key
+backend/config/credentials
+backend/config/credentials.yml.enc
+backend/.bundle
+backend/vendor/bundle
+datos
+fase_1
+fase_2

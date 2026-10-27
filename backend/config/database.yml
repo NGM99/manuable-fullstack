@@ -1,0 +1,21 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS", 3) %>
+development:
+  <<: *default
+  host: <%= ENV.fetch("DB_HOST", "db") %>
+  port: 5432
+  database: <%= ENV.fetch("DB_NAME", "manuable_development") %>
+  username: <%= ENV.fetch("DB_USER", "manuable") %>
+  password: <%= ENV.fetch("DB_PASSWORD", "manuable_local_only") %>
+test:
+  <<: *default
+  host: <%= ENV.fetch("TEST_DB_HOST", "db-test") %>
+  port: 5432
+  database: manuable_test
+  username: manuable_test
+  password: test_local_only
+production:
+  <<: *default
+  url: <%= ENV["DATABASE_URL"] %>

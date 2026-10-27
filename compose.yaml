@@ -1,0 +1,94 @@
+name: manuable
+services:
+  db:
+    image: postgres:17.11-bookworm
+    environment:
+      POSTGRES_USER: ${DB_USER:-manuable}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-manuable_local_only}
+      POSTGRES_DB: ${DB_NAME:-manuable_development}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    environment:
+      RAILS_ENV: development
+      SKIP_TEST_DATABASE: 'true'
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-manuable_development}
+      DB_USER: ${DB_USER:-manuable}
+      DB_PASSWORD: ${DB_PASSWORD:-manuable_local_only}
+      RAILS_LOG_TO_STDOUT: 'true'
+    ports:
+      - '127.0.0.1:${BACKEND_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "ruby", "-rnet/http", "-e", "exit(Net::HTTP.get_response(URI('http://127.0.0.1:3000/api/v1/health')).code == '200' ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      WATCH_USE_POLLING: ${WATCH_USE_POLLING:-false}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT:-5173}:5173'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+  db-test:
+    image: postgres:17.11-bookworm
+    profiles: [test]
+    environment:
+      POSTGRES_USER: manuable_test
+      POSTGRES_PASSWORD: test_local_only
+      POSTGRES_DB: manuable_test
+    networks: [test]
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manuable_test -d manuable_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: tests
+    environment:
+      RAILS_ENV: test
+      CI: 'true'
+      TEST_DB_HOST: db-test
+    networks: [test]
+    depends_on:
+      db-test:
+        condition: service_healthy
+volumes:
+  postgres_data:
+
+networks:
+  test:
+    internal: true
