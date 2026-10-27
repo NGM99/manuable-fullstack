@@ -4,4 +4,5 @@ set -eu
 rm -f /app/tmp/pids/server.pid
 bundle exec rails db:prepare
 bundle exec rails rates:import
+bundle exec rails rates:phase_two quotes:import_history
 exec "$@"
