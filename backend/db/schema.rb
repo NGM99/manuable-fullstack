@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,7 +21,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
     t.boolean "active", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "billing_rules", default: [], null: false
     t.index ["external_id"], name: "index_carriers_on_external_id", unique: true
+    t.check_constraint "jsonb_typeof(billing_rules) = 'array'::text", name: "carrier_billing_rules_array"
   end
 
   create_table "quotes", force: :cascade do |t|
@@ -38,10 +40,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
     t.datetime "quoted_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "length_cm", precision: 12, scale: 3
+    t.decimal "width_cm", precision: 12, scale: 3
+    t.decimal "height_cm", precision: 12, scale: 3
+    t.string "source", default: "web", null: false
+    t.string "external_reference"
+    t.datetime "valid_until", null: false
     t.index ["email"], name: "index_quotes_on_email"
+    t.index ["external_reference"], name: "index_quotes_on_external_reference", unique: true
     t.index ["quoted_at"], name: "index_quotes_on_quoted_at"
     t.check_constraint "jsonb_typeof(options) = 'array'::text", name: "quote_options_array"
+    t.check_constraint "length_cm IS NULL AND width_cm IS NULL AND height_cm IS NULL OR length_cm IS NOT NULL AND width_cm IS NOT NULL AND height_cm IS NOT NULL AND length_cm > 0::numeric AND width_cm > 0::numeric AND height_cm > 0::numeric AND length_cm < 1000000::numeric AND width_cm < 1000000::numeric AND height_cm < 1000000::numeric", name: "valid_quote_dimensions"
     t.check_constraint "origin_postal_code::text ~ '^[0-9]{5}$'::text AND destination_postal_code::text ~ '^[0-9]{5}$'::text", name: "valid_quote_postal_codes"
+    t.check_constraint "source::text = ANY (ARRAY['web'::character varying, 'manual'::character varying]::text[])", name: "valid_quote_source"
     t.check_constraint "weight_kg > 0::numeric AND weight_kg < 1000000000::numeric", name: "valid_quote_weight"
   end
 
