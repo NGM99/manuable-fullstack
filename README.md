@@ -1,86 +1,66 @@
 # Manuable — cotizador
 
-Fases 1 y 2: Rails API, PostgreSQL 17 y Vue 3 con TypeScript, Vite y Tailwind. Ruby sustituye a Python según la autorización comunicada por el candidato.
+Rails API, Vue 3 con TypeScript y PostgreSQL. Ruby sustituye a Python según la autorización comunicada por el candidato.
 
-## Ejecutar
+## Requisitos
 
-Solo requiere Docker con Compose y contenedores Linux; las imágenes base tienen variantes AMD64 y ARM64. No requiere instalar Ruby, Node ni PostgreSQL.
+- Git y Docker con Docker Compose v2; en Windows o Mac, Docker Desktop iniciado con contenedores Linux.
+- Conexión a internet para descargar imágenes y dependencias, y para consultar códigos postales mediante Zippopotam.
+- Puertos 5173 y 3000 disponibles. No necesitas instalar Ruby, Node ni PostgreSQL.
 
-    docker compose up --build
+## Levantar el proyecto
 
-- Cotizador: http://localhost:5173
-- Comercial: http://localhost:5173/admin
-- Acceso local: usuario comercial, contraseña manuable_local_only.
-- API y salud: http://localhost:3000/api/v1/health
+Clonar y entrar al repositorio:
 
-El arranque crea la base, aplica las migraciones e importa automáticamente los CSV incluidos en backend/db/data. Repetirlo no duplica la carga. Los datos persisten en el volumen de PostgreSQL.
+    git clone https://github.com/NGM99/manuable-fullstack.git
+    cd manuable-fullstack
 
-También prepara las reglas de volumétrico, las 24 tarifas DHL de diciembre y las 40 cotizaciones históricas. Las tarifas futuras no se usan antes del 01/12/2026. La actualización conserva las cotizaciones existentes.
+Ejecutar desde la raíz:
 
-Las credenciales y puertos se pueden configurar con las variables de .env.example. En Windows, usar WATCH_USE_POLLING=true en .env si Vite no detecta cambios. El frontend tiene recarga automática; para cambios del backend repetir el comando de arranque.
+    docker compose up --build -d --wait
 
-## Uso
+El comando levanta PostgreSQL, Rails y Vue, aplica las migraciones y carga automáticamente las paqueterías, tarifas y 40 cotizaciones históricas. La primera construcción puede tardar varios minutos. Repetir el arranque no duplica las cargas.
 
-Capturar CP de origen, CP de destino, peso positivo en kg y correo. Ejemplo: 06600 → 06600, 2.5 kg. Requiere conexión a Zippopotam; las opciones dependen de las tarifas disponibles.
+| Pantalla | Dirección |
+|---|---|
+| Cotizador público | http://localhost:5173 |
+| Acceso Comercial | http://localhost:5173/admin |
+| Estado de la API y PostgreSQL | http://localhost:3000/api/v1/health |
 
-Comercial puede consultar los contactos con su historial y los reportes de importación, incluyendo cada fila original, valores normalizados y motivos de aceptación o rechazo. Las credenciales permanecen en memoria del navegador.
+**Credenciales locales de Comercial**
 
-## API
+- Usuario: comercial
+- Contraseña: manuable_local_only
 
-| Método | Ruta | Acceso |
-|---|---|---|
-| POST | /api/v1/quotes | Público; JSON con email, origin_postal_code, destination_postal_code, weight_kg |
-| GET | /api/v1/admin/leads?page=1 | Basic Auth; contactos con cotizaciones |
-| GET | /api/v1/admin/quotes/:id | Basic Auth; cotización guardada |
-| GET | /api/v1/admin/imports y /api/v1/admin/imports/:id | Basic Auth; resumen y auditoría |
-| GET | /api/v1/admin/stats | Basic Auth; totales diarios y solicitudes terminadas sin opciones, por origen |
+Estos valores aplican si no se personalizaron ADMIN_USER y ADMIN_PASSWORD en .env. No es necesario crear ese archivo para ejecutar el proyecto; .env.example contiene las opciones disponibles.
 
-CP no localizado devuelve 422; servicio postal no disponible, 503. Ambos conservan la solicitud válida y su correo. Sin tarifas se devuelve una cotización sin opciones y un mensaje claro. Los datos mal formados devuelven 422 sin consultar el servicio externo.
+## Usar la aplicación
 
-## Datos y alcance
+En el cotizador, ingresar correo, CP de origen, CP de destino y peso en kg. Ejemplo: 06600 → 06600, 2.5 kg y prueba@example.com. Las opciones dependen de las tarifas y de la disponibilidad del servicio postal.
 
-Solo cuatro tablas: carriers, rates, rate_imports y quotes. El correo va en la cotización; las opciones históricas y la auditoría de las cargas se guardan como JSONB.
+Agregar largo, ancho y alto en cm para comparar opciones que requieran peso volumétrico. Las nuevas tarifas DHL y el volumétrico para DHL/FedEx se activan el 01/12/2026; no se modifica el reloj de la aplicación.
 
-La carga original importa cuatro paqueterías y 25 tarifas de 108 filas; 83 quedan rechazadas con motivos. La fase 2 agrega 24 tarifas DHL con su nueva vigencia. No se infieren unidades, fechas ni precios ausentes. revision_pendiente.json identifica filas con precios atípicos o conflicto comercial que requieren confirmación. Los originales se incluyen sin alterar sus bytes.
+En Comercial se pueden buscar contactos por correo, consultar cotizaciones y vigencias, ver indicadores diarios y revisar las filas y motivos de cada importación.
 
-La distancia usa coordenadas de Zippopotam y Haversine; zonas hasta 100, 500 y 1,000 km, y mayores. Rangos de peso: mínimo exclusivo y máximo inclusivo. Los precios son MXN. Cobertura real, impuestos y plazos requieren confirmación comercial; no existe un catálogo de cobertura por CP.
+## Ejecutar las pruebas
 
-Para repetir la carga manualmente:
-
-    docker compose exec backend bundle exec rails rates:import
-
-## Verificación
+Desde la raíz:
 
     docker compose --profile test run --build --rm tests
 
-Ejecuta RSpec, Vitest, verificación de carga Rails, TypeScript y compilación Vue. Usa PostgreSQL de pruebas independiente, red interna y respuestas postales simuladas; no necesita servicios externos durante las pruebas. La construcción inicial sí descarga dependencias.
+Ejecuta las pruebas de Rails y Vue, TypeScript y compilación del frontend. Usa una base de pruebas separada y respuestas postales simuladas; no modifica los datos de desarrollo ni depende de servicios externos durante las pruebas. La construcción inicial sí requiere internet.
 
-Para ejecutar únicamente las pruebas del backend:
+## Detener y consultar el entorno
 
-    docker compose --profile test run --build --rm --entrypoint sh tests -lc 'bundle exec rails db:prepare && bundle exec rspec'
+Detener los servicios conservando los datos:
 
-RSpec comprueba importación y auditoría CSV, límites de zona y peso, captura del contacto, conservación del precio histórico, autenticación y respuestas ante CP inexistentes o fallos del servicio postal. La integración HTTP se simula con RSpec Mocks: también se verifican JSON inválido, coordenadas inválidas y tiempos de espera sin llamar a Zippopotam.
+    docker compose down
 
-Últimas verificaciones: 40 pruebas RSpec y 11 pruebas Vitest aprobadas; TypeScript y compilación Vue correctos. El frontend utiliza Axios para las peticiones a Rails.
+Consultar estado y registros:
 
-## Mantenimiento de fase 2
+    docker compose ps
+    docker compose logs --tail=100 backend frontend
 
-El formulario admite largo, ancho y alto en cm. Desde el 01/12/2026 DHL y FedEx usan el mayor entre peso real y volumen/5000; Estafeta mantiene peso real. Sin medidas, se omiten las opciones que las requieren y se muestra un aviso. Cada opción informa su peso aplicado.
+Para aplicar cambios del código, repetir el comando de arranque. El frontend tiene recarga automática; en Windows, si no detecta cambios, configurar WATCH_USE_POLLING=true en .env y ejecutar de nuevo el arranque.
 
-Comercial ve cotizaciones manuales y web, precios históricos, fecha de vencimiento e indicadores diarios en horario de Monterrey. Los precios web se respetan durante 30 días; en históricos sin hora se respeta hasta el fin del día fecha + 30 días. Vencer no modifica ni elimina el precio registrado.
-
-Para una próxima revisión, agregar un CSV a backend/db/data con encabezados paqueteria,zona,peso_min_kg,peso_max_kg,precio_mxn,dias_entrega,vigencia_desde, y reconstruir el backend. Cada archivo reemplaza el tarifario completo de una paquetería desde una única fecha; cargar versiones en orden cronológico:
-
-    docker compose exec backend bundle exec rails 'rates:revise[db/data/nuevas_tarifas.csv]'
-
-Las reglas por paquetería, fecha y divisor se mantienen en backend/db/data/reglas_cobro.json. Después de editarlo, reconstruir el backend; para cargarlo manualmente en un contenedor que ya tenga el archivo actualizado:
-
-    docker compose exec backend bundle exec rails rates:rules
-
-Reimportar el histórico no duplica registros ni cambia precios existentes:
-
-    docker compose exec backend bundle exec rails quotes:import_history
-
-La fecha del caso de fase 2 es simulada; no se cambia el reloj del servidor para activar diciembre. Las pruebas verifican el antes y después con fechas controladas.
-
-Entorno de desarrollo local. Apple Silicon no se verificó físicamente. El tag v1 conserva la fase 1; el cierre Git de fase 2 se realiza después de revisar la entrega.
+Las imágenes admiten AMD64 y ARM64. Es un entorno local de evaluación; las credenciales incluidas son exclusivamente de desarrollo. Las decisiones y límites comerciales están en DECISIONES.md y los cierres de cada fase en ENTREGA_FASE_1.md y ENTREGA_FASE_2.md.

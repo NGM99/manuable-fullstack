@@ -7,3 +7,5 @@ El cotizador permite capturar códigos postales, peso y correo, consultar opcion
 Se cargaron 25 tarifas confiables. Las otras 83 filas permanecen rechazadas con motivos consultables; no se inventaron precios ni datos faltantes. Cada cotización conserva los importes mostrados.
 
 Falta confirmar cobertura por código postal, unidades y fechas ausentes, precios atípicos, impuestos y condiciones de entrega. Por ello, las opciones son estimaciones sujetas a confirmación.
+
+Recomendamos validar esos datos con Comercial antes de lanzar la campaña.

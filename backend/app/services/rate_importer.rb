@@ -29,7 +29,9 @@ class RateImporter
     table = CSV.read(path, headers: true, encoding: "bom|utf-8")
     required = kind == :carriers ? %w[carrier_id nombre tipo_servicio activo] :
       %w[paqueteria zona peso_min peso_max unidad precio dias_entrega vigencia_desde]
-    raise ArgumentError, "Faltan columnas: #{(required - table.headers).join(', ')}" if (required - table.headers).any?
+    headers = table.headers.to_a
+    raise ArgumentError, "El CSV no contiene filas de datos" if table.empty?
+    raise ArgumentError, "Faltan columnas: #{(required - headers).join(', ')}" if (required - headers).any?
     audit = []
     seen = {}
     RateImport.transaction do
@@ -176,7 +178,7 @@ class RateImporter
     raise ArgumentError, "formato inválido" unless match
     minimum = match[1].to_i
     maximum = (match[2] || match[1]).to_i
-    raise ArgumentError, "rango inválido" if minimum <= 0 || maximum < minimum
+    raise ArgumentError, "rango inválido" if minimum <= 0 || maximum < minimum || maximum > 2_147_483_647
     [minimum, maximum]
   end
 end

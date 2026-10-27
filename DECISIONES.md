@@ -1,4 +1,4 @@
-# Decisiones — fase 1
+# Decisiones — fases 1 y 2
 
 Este documento resume los escenarios identificados al revisar el requerimiento y los archivos recibidos, las decisiones tomadas y lo implementado. Las condiciones comerciales sin confirmar siguen siendo supuestos, no respuestas del área.
 
@@ -56,7 +56,7 @@ Resultado del archivo recibido: 108 filas revisadas, 25 normalizadas y publicada
 
 ### 2.3. Reglas comunes de importación
 
-- Leer CSV con encabezados en UTF-8, admitiendo BOM. Rechazar filas con un número incorrecto de columnas; registrar como fallida la carga si faltan encabezados obligatorios o el CSV está mal formado.
+- Leer CSV con encabezados en UTF-8, admitiendo BOM. Rechazar filas con un número incorrecto de columnas; registrar como fallida la carga si faltan encabezados obligatorios, está vacío o el CSV está mal formado. La tarea de carga termina con error si hay archivos fallidos.
 - Detectar filas originales repetidas dentro de cada archivo y rechazar las repeticiones posteriores.
 - No modificar los originales ni completar datos por suposición. Guardar los campos originales y los valores normalizados con los motivos de cada fila.
 - Clasificar cada fila como ACEPTADO, NORMALIZADO o RECHAZADO. Solo las filas sin errores se guardan en las tablas comerciales.
@@ -84,7 +84,7 @@ Resultado del archivo recibido: 108 filas revisadas, 25 normalizadas y publicada
 | Método | Ruta | Función | Acceso |
 |---|---|---|---|
 | POST | `/api/v1/quotes` | Recibir correo, CP de origen, CP de destino y peso; guardar la solicitud y devolver el resultado de la cotización. | Público |
-| GET | `/api/v1/admin/leads?page=1` | Consultar contactos agrupados por correo con sus cotizaciones, en páginas de 50 contactos. | Basic Auth |
+| GET | `/api/v1/admin/leads?page=1&q=correo` | Consultar contactos agrupados por correo con sus cotizaciones, en páginas de 10 contactos. Búsqueda parcial por correo sin distinguir mayúsculas; el filtro se aplica antes de paginar. | Basic Auth |
 | GET | `/api/v1/admin/quotes/:id` | Consultar una cotización guardada con su correo, opciones históricas y datos usados en el cálculo. | Basic Auth |
 | GET | `/api/v1/admin/imports` | Consultar los resúmenes de las últimas 20 importaciones. | Basic Auth |
 | GET | `/api/v1/admin/imports/:id` | Consultar una importación con sus filas originales, valores normalizados y motivos de aceptación o rechazo. | Basic Auth |

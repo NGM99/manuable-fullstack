@@ -11,8 +11,8 @@ class Quote < ApplicationRecord
     "external_service_unavailable" => "El servicio de códigos postales no está disponible. Tu solicitud quedó registrada; intenta de nuevo más tarde.",
     "failed" => "No pudimos completar la cotización. Tu solicitud quedó registrada."
   }.freeze
-  normalizes :email, with: ->(value) { value.strip.downcase }
-  normalizes :origin_postal_code, :destination_postal_code, with: ->(value) { value.strip }
+  normalizes :email, with: ->(value) { value.to_s.strip.downcase }
+  normalizes :origin_postal_code, :destination_postal_code, with: ->(value) { value.to_s.strip }
   validates :email, presence: true, length: { maximum: 254 }, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :origin_postal_code, :destination_postal_code, format: { with: /\A[0-9]{5}\z/ }
   validates :weight_kg, numericality: { greater_than: 0, less_than: 1_000_000_000 }

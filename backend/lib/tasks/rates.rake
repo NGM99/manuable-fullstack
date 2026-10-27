@@ -1,9 +1,11 @@
 namespace :rates do
   desc "Import phase-one CSV files without duplicating completed imports"
   task import: :environment do
-    RateImporter.new.call.each do |report|
+    reports = RateImporter.new.call
+    reports.each do |report|
       puts "#{report.file_name}: #{report.status} #{report.summary.to_json}"
     end
+    abort("Hay archivos CSV inválidos; revisa los reportes de importación") if reports.any? { |report| report.status == "failed" }
   end
 
   desc "Replace a carrier's tariff book from its CSV effective date: rates:revise[path]"
